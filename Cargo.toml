@@ -1,0 +1,13 @@
+[package]
+name = "nes_emulator"
+version = "0.1.0"
+authors = ["Kyhou <joelskill@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitfield = "0.14.0"
+macroquad = "0.3.25"
+hex-literal = "0.4.1"
+linked-list = "0.0.3"
