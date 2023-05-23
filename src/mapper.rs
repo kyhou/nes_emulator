@@ -7,7 +7,7 @@ pub struct Mapper {
 
 pub trait RW {
     fn cpu_map_read(&self, addr: u16, mapped_addr: &mut u32) -> bool;
-    fn cpu_map_write(&self, addr: u16, mapped_addr: &mut u32) -> bool;
+    fn cpu_map_write(&self, addr: u16, mapped_addr: &mut u32, data: &u8) -> bool;
     fn ppu_map_read(&self, addr: u16, mapped_addr: &mut u32) -> bool;
     fn ppu_map_write(&self, cart: &Cartridge, addr: u16, mapped_addr: &mut u32) -> bool;
     fn reset(&self);

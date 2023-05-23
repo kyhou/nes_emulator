@@ -79,7 +79,7 @@ impl Cartridge {
             file.seek(SeekFrom::Current(512)).unwrap();
         }
 
-        let mapper_id = ((header.mapper2.wrapping_shr(4)).shl(4)) | (header.mapper1.wrapping_shr(4));
+        let mapper_id = (header.mapper2.wrapping_shr(4).wrapping_shl(4)) | (header.mapper1.wrapping_shr(4));
         let mirror = if (header.mapper1 & 0x01) == 0x01 {
             Mirror::Vertical
         } else {
@@ -103,7 +103,7 @@ impl Cartridge {
                 }
 
                 chr_banks = header.chr_rom_chunks;
-                chr_memory = vec![0; (chr_banks as usize) * 8192];
+                chr_memory = vec![0; (chr_banks as usize).max(1) * 8192];
                 if let Err(error) = file.read(&mut chr_memory) {
                     println!("{:?}", error);
                 }
@@ -135,7 +135,7 @@ impl Cartridge {
 
     pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_map_read(addr, &mut mapped_addr) {
+        if self.mapper.cpu_map_write(addr, &mut mapped_addr, &data) {
             self.prg_memory[mapped_addr as usize] = data;
             true
         } else {
@@ -155,7 +155,7 @@ impl Cartridge {
 
     pub fn ppu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.ppu_map_read(addr, &mut mapped_addr) {
+        if self.mapper.ppu_map_write(self, addr, &mut mapped_addr) {
             self.chr_memory[mapped_addr as usize] = data;
             true
         } else {

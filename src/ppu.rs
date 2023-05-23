@@ -103,8 +103,9 @@ impl Debug for Ppu {
         for tile_y in 0u16..16 {
             for tile_x in 0u16..16 {
                 let offset: u16 = tile_y
-                    .wrapping_mul(256)
+                    .wrapping_mul(self.get_screen().width)
                     .wrapping_add(tile_x.wrapping_mul(16));
+
                 for row in 0u16..8 {
                     let mut tile_lsb: u8 = self.ppu_read(
                         cart,
@@ -114,6 +115,7 @@ impl Debug for Ppu {
                             .wrapping_add(row as u16),
                         false,
                     );
+
                     let mut tile_msb: u8 = self.ppu_read(
                         cart,
                         (i as u16)
@@ -125,7 +127,7 @@ impl Debug for Ppu {
                     );
 
                     for col in 0u16..8 {
-                        let pixel: u8 = (tile_lsb & 0x01) | (tile_msb & 0x01).wrapping_shl(1);
+                        let pixel: u8 = (tile_lsb & 0x01).wrapping_shl(1) | (tile_msb & 0x01);
                         tile_lsb = tile_lsb.wrapping_shr(1);
                         tile_msb = tile_msb.wrapping_shr(1);
 
@@ -135,7 +137,7 @@ impl Debug for Ppu {
                                 .wrapping_add((7 as u16).wrapping_sub(col))
                                 as u32,
                             tile_y.wrapping_mul(8).wrapping_add(row) as u32,
-                            self.get_colour_from_pallet_ram(cart, pallete, &pixel),
+                            self.get_colour_from_pallet_ram(cart, &pallete, &pixel),
                         );
                     }
                 }
@@ -148,74 +150,74 @@ impl Debug for Ppu {
 
 impl Ppu {
     pub fn new() -> Self {
-        let mut pallet = [BLACK; 0x40];
-        pallet[0x00] = Color::new(84.0 / 255.0, 84.0 / 255.0, 84.0 / 255.0, 1.0);
-        pallet[0x01] = Color::new(0.0 / 255.0, 30.0 / 255.0, 116.0 / 255.0, 1.0);
-        pallet[0x02] = Color::new(8.0 / 255.0, 16.0 / 255.0, 144.0 / 255.0, 1.0);
-        pallet[0x03] = Color::new(48.0 / 255.0, 0.0 / 255.0, 136.0 / 255.0, 1.0);
-        pallet[0x04] = Color::new(68.0 / 255.0, 0.0 / 255.0, 100.0 / 255.0, 1.0);
-        pallet[0x05] = Color::new(92.0 / 255.0, 0.0 / 255.0, 48.0 / 255.0, 1.0);
-        pallet[0x06] = Color::new(84.0 / 255.0, 4.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x07] = Color::new(60.0 / 255.0, 24.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x08] = Color::new(32.0 / 255.0, 42.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x09] = Color::new(8.0 / 255.0, 58.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x0A] = Color::new(0.0 / 255.0, 64.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x0B] = Color::new(0.0 / 255.0, 60.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x0C] = Color::new(0.0 / 255.0, 50.0 / 255.0, 60.0 / 255.0, 1.0);
-        pallet[0x0D] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x0E] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x0F] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
+        let mut pallet = [BLACK; 64];
+        pallet[0x00] = Color::from_rgba(84, 84, 84, 255);
+        pallet[0x01] = Color::from_rgba(0, 30, 116, 255);
+        pallet[0x02] = Color::from_rgba(8, 16, 144, 255);
+        pallet[0x03] = Color::from_rgba(48, 0, 136, 255);
+        pallet[0x04] = Color::from_rgba(68, 0, 100, 255);
+        pallet[0x05] = Color::from_rgba(92, 0, 48, 255);
+        pallet[0x06] = Color::from_rgba(84, 4, 0, 255);
+        pallet[0x07] = Color::from_rgba(60, 24, 0, 255);
+        pallet[0x08] = Color::from_rgba(32, 42, 0, 255);
+        pallet[0x09] = Color::from_rgba(8, 58, 0, 255);
+        pallet[0x0A] = Color::from_rgba(0, 64, 0, 255);
+        pallet[0x0B] = Color::from_rgba(0, 60, 0, 255);
+        pallet[0x0C] = Color::from_rgba(0, 50, 60, 255);
+        pallet[0x0D] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x0E] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x0F] = Color::from_rgba(0, 0, 0, 255);
 
-        pallet[0x10] = Color::new(152.0 / 255.0, 150.0 / 255.0, 152.0 / 255.0, 1.0);
-        pallet[0x11] = Color::new(8.0 / 255.0, 76.0 / 255.0, 196.0 / 255.0, 1.0);
-        pallet[0x12] = Color::new(48.0 / 255.0, 50.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x13] = Color::new(92.0 / 255.0, 30.0 / 255.0, 228.0 / 255.0, 1.0);
-        pallet[0x14] = Color::new(136.0 / 255.0, 20.0 / 255.0, 176.0 / 255.0, 1.0);
-        pallet[0x15] = Color::new(160.0 / 255.0, 20.0 / 255.0, 100.0 / 255.0, 1.0);
-        pallet[0x16] = Color::new(152.0 / 255.0, 34.0 / 255.0, 32.0 / 255.0, 1.0);
-        pallet[0x17] = Color::new(120.0 / 255.0, 60.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x18] = Color::new(84.0 / 255.0, 90.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x19] = Color::new(40.0 / 255.0, 114.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x1A] = Color::new(8.0 / 255.0, 124.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x1B] = Color::new(0.0 / 255.0, 118.0 / 255.0, 40.0 / 255.0, 1.0);
-        pallet[0x1C] = Color::new(0.0 / 255.0, 102.0 / 255.0, 120.0 / 255.0, 1.0);
-        pallet[0x1D] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x1E] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x1F] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
+        pallet[0x10] = Color::from_rgba(152, 150, 152, 255);
+        pallet[0x11] = Color::from_rgba(8, 76, 196, 255);
+        pallet[0x12] = Color::from_rgba(48, 50, 236, 255);
+        pallet[0x13] = Color::from_rgba(92, 30, 228, 255);
+        pallet[0x14] = Color::from_rgba(136, 20, 176, 255);
+        pallet[0x15] = Color::from_rgba(160, 20, 100, 255);
+        pallet[0x16] = Color::from_rgba(152, 34, 32, 255);
+        pallet[0x17] = Color::from_rgba(120, 60, 0, 255);
+        pallet[0x18] = Color::from_rgba(84, 90, 0, 255);
+        pallet[0x19] = Color::from_rgba(40, 114, 0, 255);
+        pallet[0x1A] = Color::from_rgba(8, 124, 0, 255);
+        pallet[0x1B] = Color::from_rgba(0, 118, 40, 255);
+        pallet[0x1C] = Color::from_rgba(0, 102, 120, 255);
+        pallet[0x1D] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x1E] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x1F] = Color::from_rgba(0, 0, 0, 255);
 
-        pallet[0x20] = Color::new(236.0 / 255.0, 238.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x21] = Color::new(76.0 / 255.0, 154.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x22] = Color::new(120.0 / 255.0, 124.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x23] = Color::new(176.0 / 255.0, 98.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x24] = Color::new(228.0 / 255.0, 84.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x25] = Color::new(236.0 / 255.0, 88.0 / 255.0, 180.0 / 255.0, 1.0);
-        pallet[0x26] = Color::new(236.0 / 255.0, 106.0 / 255.0, 100.0 / 255.0, 1.0);
-        pallet[0x27] = Color::new(212.0 / 255.0, 136.0 / 255.0, 32.0 / 255.0, 1.0);
-        pallet[0x28] = Color::new(160.0 / 255.0, 170.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x29] = Color::new(116.0 / 255.0, 196.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x2A] = Color::new(76.0 / 255.0, 208.0 / 255.0, 32.0 / 255.0, 1.0);
-        pallet[0x2B] = Color::new(56.0 / 255.0, 204.0 / 255.0, 108.0 / 255.0, 1.0);
-        pallet[0x2C] = Color::new(56.0 / 255.0, 180.0 / 255.0, 204.0 / 255.0, 1.0);
-        pallet[0x2D] = Color::new(60.0 / 255.0, 60.0 / 255.0, 60.0 / 255.0, 1.0);
-        pallet[0x2E] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x2F] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
+        pallet[0x20] = Color::from_rgba(236, 238, 236, 255);
+        pallet[0x21] = Color::from_rgba(76, 154, 236, 255);
+        pallet[0x22] = Color::from_rgba(120, 124, 236, 255);
+        pallet[0x23] = Color::from_rgba(176, 98, 236, 255);
+        pallet[0x24] = Color::from_rgba(228, 84, 236, 255);
+        pallet[0x25] = Color::from_rgba(236, 88, 180, 255);
+        pallet[0x26] = Color::from_rgba(236, 106, 100, 255);
+        pallet[0x27] = Color::from_rgba(212, 136, 32, 255);
+        pallet[0x28] = Color::from_rgba(160, 170, 0, 255);
+        pallet[0x29] = Color::from_rgba(116, 196, 0, 255);
+        pallet[0x2A] = Color::from_rgba(76, 208, 32, 255);
+        pallet[0x2B] = Color::from_rgba(56, 204, 108, 255);
+        pallet[0x2C] = Color::from_rgba(56, 180, 204, 255);
+        pallet[0x2D] = Color::from_rgba(60, 60, 60, 255);
+        pallet[0x2E] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x2F] = Color::from_rgba(0, 0, 0, 255);
 
-        pallet[0x30] = Color::new(236.0 / 255.0, 238.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x31] = Color::new(168.0 / 255.0, 204.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x32] = Color::new(188.0 / 255.0, 188.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x33] = Color::new(212.0 / 255.0, 178.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x34] = Color::new(236.0 / 255.0, 174.0 / 255.0, 236.0 / 255.0, 1.0);
-        pallet[0x35] = Color::new(236.0 / 255.0, 174.0 / 255.0, 212.0 / 255.0, 1.0);
-        pallet[0x36] = Color::new(236.0 / 255.0, 180.0 / 255.0, 176.0 / 255.0, 1.0);
-        pallet[0x37] = Color::new(228.0 / 255.0, 196.0 / 255.0, 144.0 / 255.0, 1.0);
-        pallet[0x38] = Color::new(204.0 / 255.0, 210.0 / 255.0, 120.0 / 255.0, 1.0);
-        pallet[0x39] = Color::new(180.0 / 255.0, 222.0 / 255.0, 120.0 / 255.0, 1.0);
-        pallet[0x3A] = Color::new(168.0 / 255.0, 226.0 / 255.0, 144.0 / 255.0, 1.0);
-        pallet[0x3B] = Color::new(152.0 / 255.0, 226.0 / 255.0, 180.0 / 255.0, 1.0);
-        pallet[0x3C] = Color::new(160.0 / 255.0, 214.0 / 255.0, 228.0 / 255.0, 1.0);
-        pallet[0x3D] = Color::new(160.0 / 255.0, 162.0 / 255.0, 160.0 / 255.0, 1.0);
-        pallet[0x3E] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
-        pallet[0x3F] = Color::new(0.0 / 255.0, 0.0 / 255.0, 0.0 / 255.0, 1.0);
+        pallet[0x30] = Color::from_rgba(236, 238, 236, 255);
+        pallet[0x31] = Color::from_rgba(168, 204, 236, 255);
+        pallet[0x32] = Color::from_rgba(188, 188, 236, 255);
+        pallet[0x33] = Color::from_rgba(212, 178, 236, 255);
+        pallet[0x34] = Color::from_rgba(236, 174, 236, 255);
+        pallet[0x35] = Color::from_rgba(236, 174, 212, 255);
+        pallet[0x36] = Color::from_rgba(236, 180, 176, 255);
+        pallet[0x37] = Color::from_rgba(228, 196, 144, 255);
+        pallet[0x38] = Color::from_rgba(204, 210, 120, 255);
+        pallet[0x39] = Color::from_rgba(180, 222, 120, 255);
+        pallet[0x3A] = Color::from_rgba(168, 226, 144, 255);
+        pallet[0x3B] = Color::from_rgba(152, 226, 180, 255);
+        pallet[0x3C] = Color::from_rgba(160, 214, 228, 255);
+        pallet[0x3D] = Color::from_rgba(160, 162, 160, 255);
+        pallet[0x3E] = Color::from_rgba(0, 0, 0, 255);
+        pallet[0x3F] = Color::from_rgba(0, 0, 0, 255);
 
         Ppu {
             tbl_name: [[0; 1024]; 2],
@@ -270,18 +272,18 @@ impl Ppu {
             0x0005 => {
                 if self.address_latch == 0 {
                     self.fine_x = data & 0x07;
-                    self.tram_addr.set_coarse_x((data.wrapping_shr(3)) as u16); // TODO: check position of the "as u16"
+                    self.tram_addr.set_coarse_x(data.wrapping_shr(3) as u16); // TODO: check position of the "as u16"
                     self.address_latch = 1;
                 } else {
                     self.tram_addr.set_fine_y((data & 0x07) as u16);
-                    self.tram_addr.set_coarse_y((data.wrapping_shr(3)) as u16); // TODO: check position of the "as u16"
+                    self.tram_addr.set_coarse_y(data.wrapping_shr(3) as u16); // TODO: check position of the "as u16"
                     self.address_latch = 0;
                 }
             } // Scroll
             0x0006 => {
                 if self.address_latch == 0 {
                     self.tram_addr.0 =
-                        (data as u16 & 0x3F as u16).wrapping_shl(8) | (self.tram_addr.0 & 0x00FF); //TODO: check position of the "as u16"
+                        ((data & 0x3F) as u16).wrapping_shl(8) | (self.tram_addr.0 & 0x00FF); //TODO: check position of the "as u16"
                     self.address_latch = 1;
                 } else {
                     self.tram_addr.0 = (self.tram_addr.0 & 0xFF00) | (data as u16);
@@ -397,11 +399,15 @@ impl Ppu {
             }
         } else if addr >= 0x3F00 && addr <= 0x3FFF {
             addr &= 0x001F;
+            // match addr {
+            //     0x0010 => addr = 0x0000,
+            //     0x0014 => addr = 0x0004,
+            //     0x0018 => addr = 0x0008,
+            //     0x001C => addr = 0x000C,
+            //     _ => (),
+            // }
             match addr {
-                0x0010 => addr = 0x0000,
-                0x0014 => addr = 0x0004,
-                0x0018 => addr = 0x0008,
-                0x001C => addr = 0x000C,
+                0x0010 | 0x0014 | 0x0018 | 0x001C => addr &= 0x000F,
                 _ => (),
             }
 
@@ -453,11 +459,15 @@ impl Ppu {
             }
         } else if addr >= 0x3F00 && addr <= 0x3FFF {
             addr &= 0x001F;
+            // match addr {
+            //     0x0010 => addr = 0x0000,
+            //     0x0014 => addr = 0x0004,
+            //     0x0018 => addr = 0x0008,
+            //     0x001C => addr = 0x000C,
+            //     _ => (),
+            // }
             match addr {
-                0x0010 => addr = 0x0000,
-                0x0014 => addr = 0x0004,
-                0x0018 => addr = 0x0008,
-                0x001C => addr = 0x000C,
+                0x0010 | 0x0014 | 0x0018 | 0x001C => addr &= 0x000F,
                 _ => (),
             }
 
@@ -519,14 +529,6 @@ impl Ppu {
     }
 
     fn load_background_shifters(&mut self) {
-        if self.bg_shifter_pattern_lo > 0 || self.bg_shifter_pattern_hi > 0 {
-            let asd = 1;
-        }
-
-        if self.bg_next_tile_lsb > 0 || self.bg_next_tile_msb > 0 {
-            let asd = 1;
-        }
-
         self.bg_shifter_pattern_lo =
             (self.bg_shifter_pattern_lo & 0xFF00) | self.bg_next_tile_lsb as u16;
         self.bg_shifter_pattern_hi =
@@ -561,6 +563,7 @@ impl Ppu {
             if self.scanline == 0 && self.cycle == 0 {
                 self.cycle = 1;
             }
+
             if self.scanline == -1 && self.cycle == 1 {
                 self.status.set_vertical_blank(false);
             }
@@ -579,10 +582,10 @@ impl Ppu {
                         self.bg_next_tile_attrib = self.ppu_read(
                             cart,
                             0x23C0
-                                | ((self.vram_addr.nametable_y() as u16).wrapping_shl(11))
-                                | ((self.vram_addr.nametable_x() as u16).wrapping_shl(10))
-                                | ((self.vram_addr.coarse_y().wrapping_shr(2)).wrapping_shl(3))
-                                | (self.vram_addr.coarse_x().wrapping_shr(2)),
+                                | (self.vram_addr.nametable_y() as u16).wrapping_shl(11)
+                                | (self.vram_addr.nametable_x() as u16).wrapping_shl(10)
+                                | self.vram_addr.coarse_y().wrapping_shr(2).wrapping_shl(3)
+                                | self.vram_addr.coarse_x().wrapping_shr(2),
                             false,
                         );
                         if self.vram_addr.coarse_y() & 0x02 == 0x02 {
@@ -596,7 +599,8 @@ impl Ppu {
                     4 => {
                         self.bg_next_tile_lsb = self.ppu_read(
                             cart,
-                            ((self.control.pattern_background() as u16).wrapping_shl(12))
+                            (self.control.pattern_background() as u16)
+                                .wrapping_shl(12)
                                 .wrapping_add((self.bg_next_tile_id as u16).wrapping_shl(4))
                                 .wrapping_add(self.vram_addr.fine_y()),
                             false,
@@ -605,7 +609,8 @@ impl Ppu {
                     6 => {
                         self.bg_next_tile_msb = self.ppu_read(
                             cart,
-                            ((self.control.pattern_background() as u16).wrapping_shl(12))
+                            (self.control.pattern_background() as u16)
+                                .wrapping_shl(12)
                                 .wrapping_add((self.bg_next_tile_id as u16).wrapping_shl(4))
                                 .wrapping_add(self.vram_addr.fine_y())
                                 .wrapping_add(8),
@@ -652,29 +657,20 @@ impl Ppu {
         let mut bg_pallete: u8 = 0x00;
 
         if self.mask.render_background() {
-            let bit_mux: u16 = (0x8000 as u16).wrapping_shr(self.fine_x as u32);
+            let bit_mux: u16 = 0x8000u16.wrapping_shr(self.fine_x as u32);
 
             let p0_pixel: u8 = ((self.bg_shifter_pattern_lo & bit_mux) > 0) as u8;
             let p1_pixel: u8 = ((self.bg_shifter_pattern_hi & bit_mux) > 0) as u8;
-
-            if self.bg_shifter_pattern_lo > 0 || self.bg_shifter_pattern_hi > 0 {
-                let asd = 1;
-            }
-
-            bg_pixel = (p1_pixel.wrapping_shl(1)) | p0_pixel;
+            bg_pixel = p1_pixel.wrapping_shl(1) | p0_pixel;
 
             let bg_pal0: u8 = ((self.bg_shifter_attrib_lo & bit_mux) > 0) as u8;
             let bg_pal1: u8 = ((self.bg_shifter_attrib_hi & bit_mux) > 0) as u8;
-            bg_pallete = (bg_pal1.wrapping_shl(1)) | bg_pal0;
-        }
-
-        if bg_pixel > 0 {
-            let asd = 1;
+            bg_pallete = bg_pal1.wrapping_shl(1) | bg_pal0;
         }
 
         // let n = rand::gen_range(0, 63); //if (rand::rand() % 2) == 1 { 0x3F } else { 0x30 };
-        if (self.cycle < self.sprite_screen.width as i16)
-            && (self.cycle >= 0)
+        if (self.cycle <= self.sprite_screen.width as i16)
+            && (self.cycle >= 1)
             && (self.scanline >= 0)
             && (self.scanline < self.sprite_screen.height as i16)
         {
@@ -682,7 +678,7 @@ impl Ppu {
             // println!("cycle: {:?}", self.cycle.wrapping_sub(1) as u32);
             // println!("scanline: {:?}", self.scanline);
             self.sprite_screen.set_pixel(
-                self.cycle as u32,
+                (self.cycle - 1) as u32,
                 self.scanline as u32,
                 self.get_colour_from_pallet_ram(cart, &bg_pallete, &bg_pixel),
             );

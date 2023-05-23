@@ -35,10 +35,10 @@ impl Bus {
         } else if addr <= 0x1FFF {
             return self.cpu_ram[(addr & 0x07FF) as usize];
         } else if addr >= 0x2000 && addr <= 0x3FFF {
-            data = ppu.cpu_read(cart, addr & 0x007, b_read_only);
+            data = ppu.cpu_read(cart, addr & 0x0007, b_read_only);
         } else if addr >= 0x4016 && addr <= 0x4017 {
-            data = ((self.controller_state[(addr & 0x0001) as usize] & 0x80) > 0) as u8;
-            self.controller_state[(addr & 0x0001) as usize] <<= 1;
+            data = ((self.controller_state[(addr & 0x0001) as usize] & 0x80) == 0x80) as u8;
+            self.controller_state[(addr & 0x0001) as usize] = self.controller_state[(addr & 0x0001) as usize].wrapping_shl(1);
         }
 
         data
@@ -47,7 +47,7 @@ impl Bus {
     pub fn reset(&mut self, cpu: &mut Cpu, ppu: &mut Ppu, cart: &mut Cartridge) {
         cpu.reset(self, ppu, cart);
         ppu.reset();
-        // cart.reset();
+        cart.reset();
         self.n_system_clock_counter = 0;
     }
 

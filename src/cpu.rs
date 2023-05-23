@@ -63,7 +63,7 @@ impl Cpu {
                 Instruction {
                     name: String::from("BRK"),
                     operate: Cpu::brk,
-                    addrmode: Cpu::imm,
+                    addrmode: Cpu::imp,
                     cycles: 7,
                 },
                 Instruction {
@@ -1776,10 +1776,10 @@ impl Cpu {
             .wrapping_add(self.get_flag(Flags::C) as u16);
         self.set_flag(Flags::C, temp > 255);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0);
-        self.set_flag(Flags::N, (temp & 0x80) == 0x80);
+        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
         self.set_flag(
             Flags::V,
-            (!((self.a as u16 ^ self.fetched as u16) & (self.a as u16 ^ temp)) & 0x0080) == 0x0080,
+            (!(self.a as u16 ^ self.fetched as u16) & (self.a as u16 ^ temp) & 0x0080) == 0x0080,
         );
         self.a = (temp & 0x00FF) as u8;
 
@@ -2400,7 +2400,7 @@ impl Cpu {
         self.addr_abs = 0xFFFC;
         let lo: u16 = self.read(bus, ppu, cart, self.addr_abs) as u16;
         let hi: u16 = self.read(bus, ppu, cart, self.addr_abs.wrapping_add(1)) as u16;
-        self.pc = (hi.wrapping_shl(8)) | lo;
+        self.pc = hi.wrapping_shl(8) | lo;
 
         self.a = 0;
         self.x = 0;

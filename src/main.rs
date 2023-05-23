@@ -45,7 +45,7 @@ async fn main() {
     let mut ppu = Ppu::new();
     let mut bus = Bus::new();
     let mut cpu = Cpu::new();
-    let mut cart = Cartridge::new("smb.nes");
+    let mut cart = Cartridge::new("nestest.nes");
     let map_asm: BTreeMap<u16, String>;
     let mut emulation_run: bool = false;
     let mut residual_time = 0.0;
@@ -187,6 +187,10 @@ async fn main() {
 
         let main_image = ppu.get_screen();
 
+        if is_key_pressed(KeyCode::PrintScreen) && (is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl)) {
+            main_image.export_png("main_image.png");
+        }
+
         draw_texture_ex(
             Texture2D::from_image(main_image),
             0.0,
@@ -210,14 +214,26 @@ async fn main() {
             for s in 0..4 {
                 // println!("Color: {:?}", ppu.get_colour_from_pallet_ram(&mut cart, &p, &(s as u8)));
                 // println!("x: {:?}", (550 + (p as i32 * swatch_size * 5) + (s * swatch_size)) as f32);
-                draw_rectangle((550 + (p as i32 * (swatch_size * 5)) + (s * swatch_size)) as f32,
-                440.0, swatch_size as f32, swatch_size as f32, ppu.get_colour_from_pallet_ram(&mut cart, &p, &(s as u8)))
+                draw_rectangle(
+                    (550 + (p as i32 * (swatch_size * 5)) + (s * swatch_size)) as f32,
+                    440.0,
+                    swatch_size as f32,
+                    swatch_size as f32,
+                    ppu.get_colour_from_pallet_ram(&mut cart, &p, &(s as u8)),
+                )
             }
         }
 
-		draw_rectangle_lines((550 + (selected_pallete as i32 * (swatch_size * 5)) - 1) as f32, 440.0, ((swatch_size * 4) + 1) as f32, (swatch_size + 1) as f32, 2.0, YELLOW);
-        let image_0 = ppu.get_pattern_table(0, &selected_pallete, &mut cart);
+        draw_rectangle_lines(
+            (550 + (selected_pallete as i32 * (swatch_size * 5)) - 1) as f32,
+            440.0,
+            ((swatch_size * 4) + 1) as f32,
+            (swatch_size + 1) as f32,
+            2.0,
+            YELLOW,
+        );
 
+        let image_0 = ppu.get_pattern_table(0, &selected_pallete, &mut cart);
         draw_texture_ex(
             Texture2D::from_image(image_0),
             550.0,
@@ -255,10 +271,6 @@ async fn main() {
                 pivot: None,
             },
         );
-
-        if cpu.pc == 0xC66E {
-            let _asd = 1;
-        }
 
         next_frame().await
     }
