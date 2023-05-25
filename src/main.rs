@@ -210,16 +210,16 @@ async fn main() {
         );
 
         let swatch_size = 6;
-        for p in 0..8 {
-            for s in 0..4 {
+        for p in 0_u8..8 {
+            for s in 0_u8..4 {
                 // println!("Color: {:?}", ppu.get_colour_from_pallet_ram(&mut cart, &p, &(s as u8)));
                 // println!("x: {:?}", (550 + (p as i32 * swatch_size * 5) + (s * swatch_size)) as f32);
                 draw_rectangle(
-                    (550 + (p as i32 * (swatch_size * 5)) + (s * swatch_size)) as f32,
+                    (550 + (p as i32 * (swatch_size * 5)) + (s as i32 * swatch_size)) as f32,
                     440.0,
                     swatch_size as f32,
                     swatch_size as f32,
-                    ppu.get_colour_from_pallet_ram(&mut cart, &p, &(s as u8)),
+                    ppu.get_colour_from_pallet_ram(&mut cart, &p, &s),
                 )
             }
         }

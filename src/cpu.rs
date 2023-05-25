@@ -1776,10 +1776,10 @@ impl Cpu {
             .wrapping_add(self.get_flag(Flags::C) as u16);
         self.set_flag(Flags::C, temp > 255);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
         self.set_flag(
             Flags::V,
-            (!(self.a as u16 ^ self.fetched as u16) & (self.a as u16 ^ temp) & 0x0080) == 0x0080,
+            (!(self.a as u16 ^ self.fetched as u16) & (self.a as u16 ^ temp) & 0x0080) > 0,
         );
         self.a = (temp & 0x00FF) as u8;
 
@@ -1790,7 +1790,7 @@ impl Cpu {
         self.fetch(bus, ppu, cart);
         self.a &= self.fetched;
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         1
     }
@@ -1800,7 +1800,7 @@ impl Cpu {
         let temp = (self.fetched as u16).wrapping_shl(1);
         self.set_flag(Flags::C, (temp as u16 & 0xFF00) > 0);
         self.set_flag(Flags::Z, (temp as u16 & 0x00FF) == 0x00);
-        self.set_flag(Flags::N, (temp as u16 & 0x80) == 0x80);
+        self.set_flag(Flags::N, (temp as u16 & 0x80) > 0);
 
         if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
             self.a = (temp & 0x00FF) as u8;
@@ -1861,8 +1861,8 @@ impl Cpu {
         let temp = self.a & self.fetched;
 
         self.set_flag(Flags::Z, (temp as u16 & 0x00FF) == 0x00);
-        self.set_flag(Flags::N, self.fetched & (1 << 7) == (1 << 7));
-        self.set_flag(Flags::V, self.fetched & (1 << 6) == (1 << 6));
+        self.set_flag(Flags::N, self.fetched & (1 << 7) > 0);
+        self.set_flag(Flags::V, self.fetched & (1 << 6) > 0);
 
         0
     }
@@ -1920,21 +1920,21 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
-            ((self.pc.wrapping_shr(8)) & 0x00FF) as u8,
+            0x0100_u16.wrapping_add(self.stkp as u16),
+            (self.pc.wrapping_shr(8) & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
         self.write(
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100_u16.wrapping_add(self.stkp as u16),
             (self.pc & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
 
         self.set_flag(Flags::B, true);
-        self.write(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16), self.status);
+        self.write(bus, ppu, cart, 0x0100_u16.wrapping_add(self.stkp as u16), self.status);
         self.stkp = self.stkp.wrapping_sub(1);
         self.set_flag(Flags::B, false);
 
@@ -1999,7 +1999,7 @@ impl Cpu {
         let temp = (self.a as u16).wrapping_sub(self.fetched as u16);
         self.set_flag(Flags::C, self.a >= self.fetched);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         1
     }
@@ -2009,7 +2009,7 @@ impl Cpu {
         let temp = (self.x as u16).wrapping_sub(self.fetched as u16);
         self.set_flag(Flags::C, self.x >= self.fetched);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
     }
@@ -2019,7 +2019,7 @@ impl Cpu {
         let temp = (self.y as u16).wrapping_sub(self.fetched as u16);
         self.set_flag(Flags::C, self.y >= self.fetched);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
     }
@@ -2029,7 +2029,7 @@ impl Cpu {
         let temp = self.fetched.wrapping_sub(1);
         self.write(bus, ppu, cart, self.addr_abs, temp & 0x00FF);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
     }
@@ -2037,7 +2037,7 @@ impl Cpu {
     fn dex(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.x = self.x.wrapping_sub(1);
         self.set_flag(Flags::Z, self.x == 0x00);
-        self.set_flag(Flags::N, (self.x & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.x & 0x80) > 0);
 
         0
     }
@@ -2045,7 +2045,7 @@ impl Cpu {
     fn dey(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.y = self.y.wrapping_sub(1);
         self.set_flag(Flags::Z, self.y == 0x00);
-        self.set_flag(Flags::N, (self.y & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.y & 0x80) > 0);
 
         0
     }
@@ -2055,7 +2055,7 @@ impl Cpu {
         self.a ^= self.fetched;
 
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         1
     }
@@ -2066,7 +2066,7 @@ impl Cpu {
         self.write(bus, ppu, cart, self.addr_abs, temp & 0x00FF);
 
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
     }
@@ -2074,7 +2074,7 @@ impl Cpu {
     fn inx(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.x = self.x.wrapping_add(1);
         self.set_flag(Flags::Z, self.x == 0x00);
-        self.set_flag(Flags::N, (self.x & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.x & 0x80) > 0);
 
         0
     }
@@ -2082,7 +2082,7 @@ impl Cpu {
     fn iny(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.y = self.y.wrapping_add(1);
         self.set_flag(Flags::Z, self.y == 0x00);
-        self.set_flag(Flags::N, (self.y & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.y & 0x80) > 0);
 
         0
     }
@@ -2122,7 +2122,7 @@ impl Cpu {
         self.fetch(bus, ppu, cart);
         self.a = self.fetched;
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         1
     }
@@ -2131,7 +2131,7 @@ impl Cpu {
         self.fetch(bus, ppu, cart);
         self.x = self.fetched;
         self.set_flag(Flags::Z, self.x == 0x00);
-        self.set_flag(Flags::N, (self.x & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.x & 0x80) > 0);
 
         1
     }
@@ -2140,17 +2140,17 @@ impl Cpu {
         self.fetch(bus, ppu, cart);
         self.y = self.fetched;
         self.set_flag(Flags::Z, self.y == 0x00);
-        self.set_flag(Flags::N, (self.y & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.y & 0x80) > 0);
 
         1
     }
 
     fn lsr(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
-        self.set_flag(Flags::C, (self.fetched & 0x0001) == 0x0001);
+        self.set_flag(Flags::C, (self.fetched & 0x0001) > 0);
         let temp = self.fetched.wrapping_shr(1);
         self.set_flag(Flags::Z, (temp as u16 & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp as u16 & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp as u16 & 0x0080) > 0);
 
         if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
             self.a = temp & 0x00FF;
@@ -2173,7 +2173,7 @@ impl Cpu {
         self.a |= self.fetched;
 
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         1
     }
@@ -2204,7 +2204,7 @@ impl Cpu {
         self.stkp = self.stkp.wrapping_add(1);
         self.a = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16));
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         0
     }
@@ -2220,11 +2220,11 @@ impl Cpu {
     fn rol(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
 
-        let temp = (self.fetched.wrapping_shl(1)) as u16 | self.get_flag(Flags::C) as u16;
+        let temp = (self.fetched as u16).wrapping_shl(1) | self.get_flag(Flags::C) as u16;
 
-        self.set_flag(Flags::C, (temp & 0xFF00) == 0xFF00);
+        self.set_flag(Flags::C, (temp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
             self.a = (temp & 0x00FF) as u8;
@@ -2238,9 +2238,9 @@ impl Cpu {
     fn ror(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
         let temp = (self.get_flag(Flags::C).wrapping_shl(7)) as u16 | (self.fetched.wrapping_shr(1)) as u16;
-        self.set_flag(Flags::C, (self.fetched & 0x01) == 0x01);
-        self.set_flag(Flags::Z, (temp & 0x00FF) == 0x00FF);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::C, (self.fetched & 0x01) > 0);
+        self.set_flag(Flags::Z, (temp & 0x00FF) == 0x00);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
             self.a = (temp & 0x00FF) as u8;
@@ -2282,12 +2282,12 @@ impl Cpu {
         let temp: u16 = (self.a as u16)
             .wrapping_add(value)
             .wrapping_add(self.get_flag(Flags::C) as u16);
-        self.set_flag(Flags::C, (temp & 0xFF00) == 0xFF00);
+        self.set_flag(Flags::C, (temp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0);
-        self.set_flag(Flags::N, (temp & 0x0080) == 0x0080);
+        self.set_flag(Flags::N, (temp & 0x0080) > 0);
         self.set_flag(
             Flags::V,
-            ((temp ^ self.a as u16) & (temp ^ value) & 0x0080) == 0x0080,
+            ((temp ^ (self.a as u16)) & (temp ^ value)) & 0x0080 > 0,
         );
         self.a = (temp & 0x00FF) as u8;
 
@@ -2327,7 +2327,7 @@ impl Cpu {
     fn tax(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.x = self.a;
         self.set_flag(Flags::Z, self.x == 0x00);
-        self.set_flag(Flags::N, (self.x & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.x & 0x80) > 0);
 
         0
     }
@@ -2335,7 +2335,7 @@ impl Cpu {
     fn tay(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.y = self.a;
         self.set_flag(Flags::Z, self.y == 0x00);
-        self.set_flag(Flags::N, (self.y & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.y & 0x80) > 0);
 
         0
     }
@@ -2343,7 +2343,7 @@ impl Cpu {
     fn tsx(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.x = self.stkp;
         self.set_flag(Flags::Z, self.x == 0x00);
-        self.set_flag(Flags::N, (self.x & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.x & 0x80) > 0);
 
         0
     }
@@ -2351,7 +2351,7 @@ impl Cpu {
     fn txa(&mut self, _bus: &mut Bus, _ppu: &mut Ppu, _cart: &mut Cartridge) -> u8 {
         self.a = self.x;
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         0
     }
@@ -2366,7 +2366,7 @@ impl Cpu {
         self.a = self.y;
 
         self.set_flag(Flags::Z, self.a == 0x00);
-        self.set_flag(Flags::N, (self.a & 0x80) == 0x80);
+        self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
         0
     }

@@ -75,12 +75,12 @@ impl Cartridge {
             file.read_exact(header_slice).unwrap();
         }
 
-        if (header.mapper1 & 0x04) == 0x04 {
+        if (header.mapper1 & 0x04) > 0 {
             file.seek(SeekFrom::Current(512)).unwrap();
         }
 
-        let mapper_id = (header.mapper2.wrapping_shr(4).wrapping_shl(4)) | (header.mapper1.wrapping_shr(4));
-        let mirror = if (header.mapper1 & 0x01) == 0x01 {
+        let mapper_id = header.mapper2.wrapping_shr(4).wrapping_shl(4) | header.mapper1.wrapping_shr(4);
+        let mirror = if (header.mapper1 & 0x01) > 0 {
             Mirror::Vertical
         } else {
             Mirror::Horizontal
@@ -97,13 +97,13 @@ impl Cartridge {
             0 => {}
             1 => {
                 prg_banks = header.prg_rom_chunks;
-                prg_memory = vec![0; (prg_banks as usize) * 16384];
+                prg_memory.resize((prg_banks as usize) * (16 * 1024), 0);
                 if let Err(error) = file.read(&mut prg_memory) {
                     println!("{:?}", error);
                 }
 
                 chr_banks = header.chr_rom_chunks;
-                chr_memory = vec![0; (chr_banks as usize).max(1) * 8192];
+                chr_memory.resize((chr_banks as usize).max(1) * (8 * 1024), 0);
                 if let Err(error) = file.read(&mut chr_memory) {
                     println!("{:?}", error);
                 }
