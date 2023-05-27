@@ -100,13 +100,13 @@ impl Debug for Ppu {
     }
 
     fn get_pattern_table(&mut self, i: u8, pallete: &u8, cart: &mut Cartridge) -> &Image {
-        for tile_y in 0u16..16 {
-            for tile_x in 0u16..16 {
+        for tile_y in 0_u16..16 {
+            for tile_x in 0_u16..16 {
                 let offset: u16 = tile_y
                     .wrapping_mul(self.get_screen().width)
                     .wrapping_add(tile_x.wrapping_mul(16));
 
-                for row in 0u16..8 {
+                for row in 0_u16..8 {
                     let mut tile_lsb: u8 = self.ppu_read(
                         cart,
                         (i as u16)
@@ -127,15 +127,12 @@ impl Debug for Ppu {
                     );
 
                     for col in 0u16..8 {
-                        let pixel: u8 = (tile_lsb & 0x01).wrapping_shl(1) | (tile_msb & 0x01);
+                        let pixel: u8 = (tile_msb & 0x01).wrapping_shl(1) | (tile_lsb & 0x01);
                         tile_lsb = tile_lsb.wrapping_shr(1);
                         tile_msb = tile_msb.wrapping_shr(1);
 
                         self.sprite_pattern_table[i as usize].set_pixel(
-                            tile_x
-                                .wrapping_mul(8)
-                                .wrapping_add((7 as u16).wrapping_sub(col))
-                                as u32,
+                            tile_x.wrapping_mul(8).wrapping_add(7_u16.wrapping_sub(col)) as u32,
                             tile_y.wrapping_mul(8).wrapping_add(row) as u32,
                             self.get_colour_from_pallet_ram(cart, &pallete, &pixel),
                         );
@@ -535,13 +532,13 @@ impl Ppu {
             (self.bg_shifter_pattern_hi & 0xFF00) | self.bg_next_tile_msb as u16;
 
         self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00)
-            | if (self.bg_next_tile_attrib & 0b00000001) == 0b00000001 {
+            | if (self.bg_next_tile_attrib & 0b01) > 0 {
                 0xFF
             } else {
                 0x00
             };
         self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00)
-            | if (self.bg_next_tile_attrib & 0b00000010) == 0b00000010 {
+            | if (self.bg_next_tile_attrib & 0b10) > 0 {
                 0xFF
             } else {
                 0x00
@@ -588,12 +585,15 @@ impl Ppu {
                                 | self.vram_addr.coarse_x().wrapping_shr(2),
                             false,
                         );
-                        if self.vram_addr.coarse_y() & 0x02 == 0x02 {
+
+                        if self.vram_addr.coarse_y() & 0x02 > 0 {
                             self.bg_next_tile_attrib = self.bg_next_tile_attrib.wrapping_shr(4);
                         }
-                        if self.vram_addr.coarse_x() & 0x02 == 0x02 {
+
+                        if self.vram_addr.coarse_x() & 0x02 > 0 {
                             self.bg_next_tile_attrib = self.bg_next_tile_attrib.wrapping_shr(2);
                         }
+
                         self.bg_next_tile_attrib &= 0x03;
                     }
                     4 => {
@@ -624,11 +624,11 @@ impl Ppu {
                 }
             }
 
-            if self.scanline == 256 {
+            if self.cycle == 256 {
                 self.increment_scroll_y();
             }
 
-            if self.scanline == 257 {
+            if self.cycle == 257 {
                 self.load_background_shifters();
                 self.transfer_address_x();
             }
@@ -657,7 +657,7 @@ impl Ppu {
         let mut bg_pallete: u8 = 0x00;
 
         if self.mask.render_background() {
-            let bit_mux: u16 = 0x8000u16.wrapping_shr(self.fine_x as u32);
+                let bit_mux: u16 = 0x8000_u16.wrapping_shr(self.fine_x as u32);
 
             let p0_pixel: u8 = ((self.bg_shifter_pattern_lo & bit_mux) > 0) as u8;
             let p1_pixel: u8 = ((self.bg_shifter_pattern_hi & bit_mux) > 0) as u8;
@@ -725,7 +725,7 @@ impl Ppu {
     ) -> Color {
         self.pallete_screen[(self.ppu_read(
             cart,
-            (0x3F00 as u16)
+            0x3F00_u16
                 .wrapping_add(((*pallete).wrapping_shl(2)) as u16)
                 .wrapping_add(*pixel as u16),
             false,
