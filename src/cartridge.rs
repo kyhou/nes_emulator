@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::Path,
-    rc::Rc, ops::Shl,
+    rc::Rc,
 };
 
 use crate::{mapper::RW, mapper_000::Mapper000};
@@ -57,16 +57,6 @@ impl Cartridge {
             tv_system2: 0,
             unused: [0; 5],
         };
-
-        // let header_size = mem::size_of::<INesHeader>();
-        // let mut header_bytes = vec![0; header_size];
-
-        // match file.read_exact(&mut header_bytes) {
-        //     Ok(()) => {
-        //         header = unsafe { mem::transmute(header_bytes.as_slice()) };
-        //     }
-        //     Err(e) => panic!("Failed to read header: {}", e),
-        // }
 
         let header_size = std::mem::size_of::<INesHeader>();
         unsafe {
