@@ -48,7 +48,6 @@ async fn main() {
     let mut cart = Cartridge::new("nestest.nes");
     let map_asm: BTreeMap<u16, String>;
     let mut emulation_run: bool = false;
-    let mut residual_time = 0.0;
     let mut selected_pallete: u8 = 0x00;
 
     // let program = Vec::from(hex!(
@@ -60,14 +59,28 @@ async fn main() {
         panic!("error loading cartridge image");
     }
 
-    map_asm = cpu.disassemble(0x0000, 0xFFFF, &mut bus, &mut ppu, &mut cart);
+    // map_asm = cpu.disassemble(0x0000, 0xFFFF, &mut bus, &mut ppu, &mut cart);
 
     bus.reset(&mut cpu, &mut ppu, &mut cart);
 
-    let mut fps_timer = 0f32;
+    let mut fps_timer = 0_f32;
     let mut fps: i32 = 0;
+    let mut show_name_tbl: bool = false;
+
+    let target_fps = 60;
+    let mut last_frame_time = get_time();
 
     loop {
+        let current_time = get_time();
+        let delta_time = current_time - last_frame_time;
+        let target_delta_time = 1.0 / target_fps as f64;
+
+        if delta_time < target_delta_time {
+            continue;
+        }
+
+        last_frame_time = current_time;
+
         clear_background(DARKBLUE);
 
         fps_timer += get_frame_time();
@@ -142,48 +155,29 @@ async fn main() {
         };
 
         if emulation_run {
-            if residual_time > 0.0 {
-                residual_time -= get_frame_time()
-            } else {
-                residual_time += (1.0 / 60.0) - get_frame_time();
-                loop {
-                    bus.clock(&mut cpu, &mut ppu, &mut cart);
-                    if ppu.frame_complete {
-                        break;
-                    }
-                }
-                ppu.frame_complete = false;
+            while !ppu.frame_complete {
+                bus.clock(&mut cpu, &mut ppu, &mut cart);
             }
+
+            ppu.frame_complete = false;
         } else {
             if is_key_pressed(KeyCode::C) {
-                loop {
+                while cpu.complete() {
                     bus.clock(&mut cpu, &mut ppu, &mut cart);
-                    if cpu.complete() {
-                        break;
-                    }
                 }
 
-                loop {
+                while !cpu.complete() {
                     bus.clock(&mut cpu, &mut ppu, &mut cart);
-                    if !cpu.complete() {
-                        break;
-                    }
                 }
             }
 
             if is_key_pressed(KeyCode::F) {
-                loop {
+                while ppu.frame_complete {
                     bus.clock(&mut cpu, &mut ppu, &mut cart);
-                    if ppu.frame_complete {
-                        break;
-                    }
                 }
 
-                loop {
+                while !cpu.complete() {
                     bus.clock(&mut cpu, &mut ppu, &mut cart);
-                    if cpu.complete() {
-                        break;
-                    }
                 }
 
                 ppu.frame_complete = false;
@@ -204,12 +198,30 @@ async fn main() {
 
         // cpu.draw_ram(&mut bus, &mut ppu, &mut cart, 2, 272, 0x8000, 16, 16);
         cpu.draw_cpu(550, 12);
-        cpu.draw_code(&cpu.pc, 550, 122, 26, &map_asm);
+        // cpu.draw_code(&cpu.pc, 550, 122, 26, &map_asm);
         // cpu.draw_ram(&mut bus, &mut ppu, &mut cart, 550, 450, 0x0000, 16, 16);
+
+        for i in 0_usize..24 {
+            let oam_reg = ppu.oam[i];
+
+            let mut s = format!("{:2x}", i);
+            s.push_str(": (");
+            s.push_str(format!("{:3}", oam_reg.x).as_str());
+            s.push_str(", ");
+            s.push_str(format!("{:3}", oam_reg.y).as_str());
+            s.push_str(") ");
+            s.push_str("ID: ");
+            s.push_str(format!("{:2x}", oam_reg.id).as_str());
+            s.push_str(" AT: ");
+            s.push_str(format!("{:2x}", oam_reg.attribute).as_str());
+            draw_text(s.as_str(), 550.0, (110 + i * 14) as f32, 25.0, WHITE);
+        }
 
         let main_image = ppu.get_screen();
 
-        if is_key_pressed(KeyCode::PrintScreen) && (is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl)) {
+        if is_key_pressed(KeyCode::PrintScreen)
+            && (is_key_down(KeyCode::LeftControl) || is_key_down(KeyCode::RightControl))
+        {
             main_image.export_png("main_image.png");
         }
 
