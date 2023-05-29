@@ -119,6 +119,28 @@ async fn main() {
         //     WHITE,
         // );
 
+        bus.controller[0] = 0x00;
+        bus.controller[0] |= if is_key_down(KeyCode::Z) { 0x80 } else { 0x00 };
+        bus.controller[0] |= if is_key_down(KeyCode::X) { 0x40 } else { 0x00 };
+        bus.controller[0] |= if is_key_down(KeyCode::S) { 0x20 } else { 0x00 };
+        bus.controller[0] |= if is_key_down(KeyCode::A) { 0x10 } else { 0x00 };
+        bus.controller[0] |= if is_key_down(KeyCode::Up) { 0x08 } else { 0x00 };
+        bus.controller[0] |= if is_key_down(KeyCode::Down) {
+            0x04
+        } else {
+            0x00
+        };
+        bus.controller[0] |= if is_key_down(KeyCode::Left) {
+            0x02
+        } else {
+            0x00
+        };
+        bus.controller[0] |= if is_key_down(KeyCode::Right) {
+            0x01
+        } else {
+            0x00
+        };
+
         if emulation_run {
             if residual_time > 0.0 {
                 residual_time -= get_frame_time()
