@@ -70,6 +70,10 @@ async fn main() {
     let target_fps = 60;
     let mut last_frame_time = get_time();
 
+    let main_texture: Texture2D = Texture2D::from_image(&Image::gen_image_color(256, 240, BLACK));
+    let image_0_texture: Texture2D = Texture2D::from_image(&Image::gen_image_color(128, 128, BLACK));
+    let image_1_texture: Texture2D = Texture2D::from_image(&Image::gen_image_color(128, 128, BLACK));
+
     loop {
         let current_time = get_time();
         let delta_time = current_time - last_frame_time;
@@ -225,8 +229,9 @@ async fn main() {
             main_image.export_png("main_image.png");
         }
 
+        main_texture.update(main_image);
         draw_texture_ex(
-            Texture2D::from_image(main_image),
+            main_texture,
             0.0,
             0.0,
             WHITE,
@@ -268,8 +273,9 @@ async fn main() {
         );
 
         let image_0 = ppu.get_pattern_table(0, &selected_pallete, &mut cart);
+        image_0_texture.update(image_0);
         draw_texture_ex(
-            Texture2D::from_image(image_0),
+            image_0_texture,
             550.0,
             450.0,
             WHITE,
@@ -287,9 +293,9 @@ async fn main() {
         );
 
         let image_1 = ppu.get_pattern_table(1, &selected_pallete, &mut cart);
-
+        image_1_texture.update(image_1);
         draw_texture_ex(
-            Texture2D::from_image(image_1),
+            image_1_texture,
             820.0,
             450.0,
             WHITE,
