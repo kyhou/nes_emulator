@@ -1,8 +1,5 @@
 use std::{
-    fs::File,
-    io::{Read, Seek, SeekFrom},
-    path::Path,
-    rc::Rc,
+    cell::RefCell, fs::File, io::{Read, Seek, SeekFrom}, path::Path, rc::Rc
 };
 
 use crate::{mapper::RW, mapper_000::Mapper000};
@@ -10,12 +7,11 @@ use crate::{mapper::RW, mapper_000::Mapper000};
 pub struct Cartridge {
     prg_memory: Vec<u8>,
     chr_memory: Vec<u8>,
-    mapper_id: u8,
     pub prg_banks: u8,
     pub chr_banks: u8,
     pub image_valid: bool,
-    pub mirror: Mirror,
-    mapper: Rc<dyn RW>,
+    pub hw_mirror: Mirror,
+    mapper: Rc<RefCell<dyn RW>>,
 }
 
 #[repr(C)]
@@ -31,7 +27,9 @@ struct INesHeader {
     unused: [u8; 5],
 }
 
+#[derive(Clone, PartialEq)]
 pub enum Mirror {
+    Hardware,
     Vertical,
     Horizontal,
     OneScreenLo,
@@ -70,20 +68,24 @@ impl Cartridge {
         }
 
         let mapper_id = header.mapper2.wrapping_shr(4).wrapping_shl(4) | header.mapper1.wrapping_shr(4);
-        let mirror = if (header.mapper1 & 0x01) > 0 {
+        let hw_mirror = if (header.mapper1 & 0x01) > 0 {
             Mirror::Vertical
         } else {
             Mirror::Horizontal
         };
 
-        let n_file_type = 1;
+        let mut file_type = 1;
 
         let mut prg_memory: Vec<u8> = Vec::new();
         let mut chr_memory: Vec<u8> = Vec::new();
         let mut prg_banks: u8 = 0;
         let mut chr_banks: u8 = 0;
 
-        match n_file_type {
+        if (header.mapper2 & 0x0C) == 0x08 {
+            file_type = 2;
+        }
+
+        match file_type {
             0 => {}
             1 => {
                 prg_banks = header.prg_rom_chunks;
@@ -98,35 +100,53 @@ impl Cartridge {
                     println!("{:?}", error);
                 }
             }
-            2 => {}
+            2 => {
+                prg_banks = ((header.prg_ram_size & 0x07).wrapping_shl(8) | header.prg_rom_chunks) as u8;
+                prg_memory.resize((prg_banks as usize) * (16 * 1024), 0);
+                if let Err(error) = file.read(&mut prg_memory) {
+                    println!("{:?}", error);
+                }
+
+                chr_banks = ((header.prg_ram_size & 0x38).wrapping_shr(3).wrapping_shl(8) | header.chr_rom_chunks) as u8;
+                chr_memory.resize((chr_banks as usize).max(1) * (8 * 1024), 0);
+                if let Err(error) = file.read(&mut chr_memory) {
+                    println!("{:?}", error);
+                }
+            }
             _ => {}
         }
 
-        let mut mapper: Rc<dyn RW> = Rc::new(Mapper000::new(0, 0));
+        let mut mapper: Rc<RefCell<dyn RW>> = Rc::new(RefCell::new(Mapper000::new(0, 0)));
 
         match mapper_id {
             0 => {
-                mapper = Rc::new(Mapper000::new(prg_banks, chr_banks));
+                mapper = Rc::new(RefCell::new(Mapper000::new(prg_banks, chr_banks)));
             }
-            _ => {}
+            _ => {
+                println!("Mapper {} not yet implemented", mapper_id);
+            }
         }
 
         Cartridge {
             prg_memory,
             chr_memory,
-            mapper_id,
             prg_banks,
             chr_banks,
             image_valid: true,
-            mirror,
+            hw_mirror,
             mapper,
         }
     }
 
     pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_map_write(addr, &mut mapped_addr, &data) {
+        if self.mapper.borrow_mut().cpu_map_write(addr, &mut mapped_addr, &data) {
+            if mapped_addr == 0xFFFFFFFF{
+                return true;
+            } else {
             self.prg_memory[mapped_addr as usize] = data;
+            }
+
             true
         } else {
             false
@@ -135,8 +155,13 @@ impl Cartridge {
 
     pub fn cpu_read(&self, addr: u16, data: &mut u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_map_read(addr, &mut mapped_addr) {
+        if self.mapper.borrow().cpu_map_read(addr, &mut mapped_addr, data) {
+            if mapped_addr == 0xFFFFFFFF{
+                return true;
+            } else {
             *data = self.prg_memory[mapped_addr as usize];
+            }
+            
             true
         } else {
             false
@@ -145,7 +170,7 @@ impl Cartridge {
 
     pub fn ppu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.ppu_map_write(self, addr, &mut mapped_addr) {
+        if self.mapper.borrow().ppu_map_write(self, addr, &mut mapped_addr) {
             self.chr_memory[mapped_addr as usize] = data;
             true
         } else {
@@ -155,7 +180,10 @@ impl Cartridge {
 
     pub fn ppu_read(&self, addr: u16, data: &mut u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.ppu_map_read(addr, &mut mapped_addr) {
+        if self.mapper.borrow().ppu_map_read(addr, &mut mapped_addr) {
+            if self.chr_memory.len() <= (mapped_addr as usize) {
+                return false;
+            }
             *data = self.chr_memory[mapped_addr as usize];
             true
         } else {
@@ -164,6 +192,20 @@ impl Cartridge {
     }
 
     pub fn reset(&mut self) {
-        self.mapper.reset();
+        if let Ok(mut mapper) = self.mapper.try_borrow_mut() { mapper.reset() }
+    }
+
+    pub fn mirror(&self) -> Mirror {
+        let mirror: Mirror = self.mapper.borrow().mirror();
+
+        if mirror == Mirror::Hardware {
+            self.hw_mirror.clone()
+        } else {
+            mirror
+        }
+    }
+
+    pub fn get_mapper(&self) -> Rc<RefCell<dyn RW>> {
+        self.mapper.clone()
     }
 }

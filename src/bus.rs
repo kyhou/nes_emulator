@@ -27,7 +27,13 @@ impl Bus {
         }
     }
 
-    pub fn cpu_write(&mut self, ppu: &mut Ppu, cart: &mut Cartridge, addr: u16, data: u8) {
+    pub fn cpu_write(
+        &mut self,
+        ppu: &mut Ppu,
+        cart: &mut Cartridge,
+        addr: u16,
+        data: u8,
+    ) {
         if cart.cpu_write(addr, data) {
         } else if addr <= 0x1FFF {
             self.cpu_ram[(addr & 0x07FF) as usize] = data;
@@ -67,10 +73,15 @@ impl Bus {
     }
 
     pub fn reset(&mut self, cpu: &mut Cpu, ppu: &mut Ppu, cart: &mut Cartridge) {
+        cart.reset();
         cpu.reset(self, ppu, cart);
         ppu.reset();
-        cart.reset();
         self.system_clock_counter = 0;
+        self.dma_page = 0x00;
+        self.dma_addr = 0x00;
+        self.dma_data = 0x00;
+        self.dma_dummy = true;
+        self.dma_transfer = false;
     }
 
     pub fn clock(&mut self, cpu: &mut Cpu, ppu: &mut Ppu, cart: &mut Cartridge) {
@@ -82,8 +93,7 @@ impl Bus {
                     if self.system_clock_counter % 2 == 1 {
                         self.dma_dummy = false;
                     }
-                } else {
-                    if self.system_clock_counter % 2 == 0 {
+                } else if self.system_clock_counter % 2 == 0 {
                         self.dma_data = self.cpu_read(
                             ppu,
                             cart,
@@ -93,7 +103,7 @@ impl Bus {
                     } else {
                         match self.dma_addr % 4 {
                             0 => {
-                                ppu.oam[(self.dma_addr / 4) as usize].y =  self.dma_data;
+                            ppu.oam[(self.dma_addr / 4) as usize].y = self.dma_data;
                             }
                             1 => {
                                 ppu.oam[(self.dma_addr / 4) as usize].id = self.dma_data;
@@ -111,7 +121,6 @@ impl Bus {
                         if self.dma_addr == 0x00 {
                             self.dma_transfer = false;
                             self.dma_dummy = true;
-                        }
                     }
                 }
             } else {
@@ -122,6 +131,11 @@ impl Bus {
         if ppu.nmi {
             ppu.nmi = false;
             cpu.nmi(self, ppu, cart);
+        }
+
+        if cart.get_mapper().borrow().irq_state() {
+            cart.get_mapper().borrow_mut().irq_clear();
+            cpu.irq(self, ppu, cart);
         }
 
         self.system_clock_counter += 1;

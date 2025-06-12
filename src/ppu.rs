@@ -39,6 +39,8 @@ pub struct Ppu {
     sprite_shifter_pattern_hi: [u8; 8],
     sprite_zero_hit_possible: bool,
     sprite_zero_being_rendered: bool,
+    scanline_trigger: bool,
+    odd_frame: bool,
 }
 
 bitfield! {
@@ -162,7 +164,7 @@ impl Debug for Ppu {
                         self.sprite_pattern_table[i as usize].set_pixel(
                             tile_x.wrapping_mul(8).wrapping_add(7_u16.wrapping_sub(col)) as u32,
                             tile_y.wrapping_mul(8).wrapping_add(row) as u32,
-                            self.get_colour_from_pallet_ram(cart, &pallete, &pixel),
+                            self.get_colour_from_pallet_ram(cart, pallete.clone(), pixel.clone()),
                         );
                     }
                 }
@@ -286,6 +288,8 @@ impl Ppu {
             sprite_shifter_pattern_hi: [0; 8],
             sprite_zero_hit_possible: false,
             sprite_zero_being_rendered: false,
+            scanline_trigger: false,
+            odd_frame: false,
         }
     }
 
@@ -428,7 +432,7 @@ impl Ppu {
                 [(addr & 0x0FFF) as usize] = data;
         } else if addr >= 0x2000 && addr <= 0x3EFF {
             addr &= 0x0FFF;
-            match cart.mirror {
+            match cart.mirror() {
                 cartridge::Mirror::Vertical => {
                     if addr <= 0x03FF {
                         self.tbl_name[0][(addr & 0x03FF) as usize] = data;
@@ -459,6 +463,7 @@ impl Ppu {
                 }
                 cartridge::Mirror::OneScreenLo => todo!(),
                 cartridge::Mirror::OneScreenHi => todo!(),
+                cartridge::Mirror::Hardware => todo!(),
             }
         } else if addr >= 0x3F00 && addr <= 0x3FFF {
             addr &= 0x001F;
@@ -482,7 +487,7 @@ impl Ppu {
                 [(addr & 0x0FFF) as usize];
         } else if addr >= 0x2000 && addr <= 0x3EFF {
             addr &= 0x0FFF;
-            match cart.mirror {
+            match cart.mirror() {
                 cartridge::Mirror::Vertical => {
                     if addr <= 0x03FF {
                         data = self.tbl_name[0][(addr & 0x03FF) as usize];
@@ -513,6 +518,7 @@ impl Ppu {
                 }
                 cartridge::Mirror::OneScreenLo => todo!(),
                 cartridge::Mirror::OneScreenHi => todo!(),
+                cartridge::Mirror::Hardware => todo!(),
             }
         } else if addr >= 0x3F00 && addr <= 0x3FFF {
             addr &= 0x001F;
@@ -623,18 +629,19 @@ impl Ppu {
     }
 
     pub fn clock(&mut self, cart: &mut Cartridge) {
-        if self.scanline >= -1
-            && self.scanline < 240
+        if self.scanline >= -1 && self.scanline < 240 {
+            if self.scanline == 0
+                && self.cycle == 0
+                && self.odd_frame
             && (self.mask.render_background() || self.mask.render_sprites())
         {
-            if self.scanline == 0 && self.cycle == 0 {
                 self.cycle = 1;
             }
 
             if self.scanline == -1 && self.cycle == 1 {
                 self.status.set_vertical_blank(false);
-                self.status.set_sprite_zero_hit(false);
                 self.status.set_sprite_overflow(false);
+                self.status.set_sprite_zero_hit(false);
 
                 for i in 0_usize..8 {
                     self.sprite_shifter_pattern_lo[i] = 0;
@@ -730,9 +737,10 @@ impl Ppu {
                     self.sprite_shifter_pattern_hi[i] = 0;
                 }
 
+                let mut oam_entry: u8 = 0;
+
                 self.sprite_zero_hit_possible = false;
 
-                let mut oam_entry: u8 = 0;
                 while oam_entry < 64 && self.sprite_count < 9 {
                     let diff: i16 = self
                         .scanline
@@ -747,9 +755,8 @@ impl Ppu {
 
                             self.sprite_scanline[self.sprite_count as usize] =
                                 self.oam[oam_entry as usize].clone();
-
-                            self.sprite_count = self.sprite_count.wrapping_add(1);
                         }
+                            self.sprite_count = self.sprite_count.wrapping_add(1);
                     }
 
                     oam_entry = oam_entry.wrapping_add(1);
@@ -859,15 +866,18 @@ impl Ppu {
             if self.scanline == 241 && self.cycle == 1 {
                 self.status.set_vertical_blank(true);
 
-                self.nmi = self.control.enable_nmi();
+                if self.control.enable_nmi() {
+                    self.nmi = true;
+                }
             }
         }
 
         let mut bg_pixel: u8 = 0x00;
         let mut bg_palette: u8 = 0x00;
 
-        if self.mask.render_background() {
-            if self.mask.render_background_left() || (self.cycle >= 9) {
+        if self.mask.render_background()
+            && (self.mask.render_background_left() || (self.cycle >= 9))
+        {
                 let bit_mux: u16 = 0x8000_u16.wrapping_shr(self.fine_x as u32);
 
                 let p0_pixel: u8 = ((self.bg_shifter_pattern_lo & bit_mux) > 0) as u8;
@@ -877,7 +887,6 @@ impl Ppu {
                 let bg_pal0: u8 = ((self.bg_shifter_attrib_lo & bit_mux) > 0) as u8;
                 let bg_pal1: u8 = ((self.bg_shifter_attrib_hi & bit_mux) > 0) as u8;
                 bg_palette = bg_pal1.wrapping_shl(1) | bg_pal0;
-            }
         }
 
         let mut fg_pixel: u8 = 0x00;
@@ -930,7 +939,7 @@ impl Ppu {
 
             if self.sprite_zero_being_rendered && self.sprite_zero_hit_possible {
                 if self.mask.render_background() && self.mask.render_sprites() {
-                    if !self.mask.render_background_left() | self.mask.render_sprites_left() {
+                    if !(self.mask.render_background_left() | self.mask.render_sprites_left()) {
                         if self.cycle >= 9 && self.cycle < 258 {
                             self.status.set_sprite_zero_hit(true);
                         }
@@ -951,11 +960,18 @@ impl Ppu {
             self.sprite_screen.set_pixel(
                 (self.cycle - 1) as u32,
                 self.scanline as u32,
-                self.get_colour_from_pallet_ram(cart, &palette, &pixel),
+                self.get_colour_from_pallet_ram(cart, palette.clone(), pixel.clone()),
             );
         }
 
         self.cycle += 1;
+
+        if self.mask.render_background() || self.mask.render_sprites() {
+            if self.cycle == 260 && self.scanline < 240 {
+                cart.get_mapper().borrow_mut().scanline();
+            }
+        }
+
         if self.cycle >= 341 {
             self.cycle = 0;
             self.scanline += 1;
@@ -963,6 +979,7 @@ impl Ppu {
             if self.scanline >= 261 {
                 self.scanline = -1;
                 self.frame_complete = true;
+                self.odd_frame = !self.odd_frame;
             }
         }
     }
@@ -986,19 +1003,21 @@ impl Ppu {
         self.control.0 = 0x00;
         self.vram_addr.0 = 0x0000;
         self.tram_addr.0 = 0x0000;
+        self.scanline_trigger = false;
+        self.odd_frame = false;
     }
 
     pub fn get_colour_from_pallet_ram(
         &self,
         cart: &mut Cartridge,
-        pallete: &u8,
-        pixel: &u8,
+        pallete: u8,
+        pixel: u8,
     ) -> Color {
         self.pallete_screen[(self.ppu_read(
             cart,
             0x3F00_u16
-                .wrapping_add(((*pallete).wrapping_shl(2)) as u16)
-                .wrapping_add(*pixel as u16),
+                .wrapping_add(((pallete).wrapping_shl(2)) as u16)
+                .wrapping_add(pixel as u16),
             false,
         ) & 0x3F) as usize]
     }

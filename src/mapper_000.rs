@@ -8,18 +8,18 @@ pub struct Mapper000 {
 }
 impl Mapper000 {
     pub fn new(prg_banks: u8, chr_banks: u8) -> Self {
-        let mapper = Mapper000 {
+        let mut mapper = Mapper000 {
             mapper: Mapper::new(prg_banks, chr_banks),
         };
 
         mapper.reset();
 
-        return mapper;
+        mapper
     }
 }
 
 impl RW for Mapper000 {
-    fn cpu_map_read(&self, addr: u16, mapped_addr: &mut u32) -> bool {
+    fn cpu_map_read(&self, addr: u16, mapped_addr: &mut u32, _data: &mut u8) -> bool {
         if addr >= 0x8000 {
             *mapped_addr = (addr
                 & (if self.mapper.prg_banks > 1 {
@@ -33,7 +33,7 @@ impl RW for Mapper000 {
         }
     }
 
-    fn cpu_map_write(&self, addr: u16, mapped_addr: &mut u32, _data: &u8) -> bool {
+    fn cpu_map_write(&mut self, addr: u16, mapped_addr: &mut u32, _data: &u8) -> bool {
         if addr >= 0x8000 {
             *mapped_addr = (addr
                 & (if self.mapper.prg_banks > 1 {
@@ -63,8 +63,20 @@ impl RW for Mapper000 {
                 return true;
             }
         }
-        return false;
+        false
     }
 
-    fn reset(&self) {}
+    fn reset(&mut self) {}
+
+    fn irq_state(&self) -> bool {
+        false
+    }
+
+    fn irq_clear(&mut self) {}
+
+    fn scanline(&mut self) {}
+
+    fn mirror(&self) -> crate::cartridge::Mirror {
+        crate::cartridge::Mirror::Hardware
+    }
 }

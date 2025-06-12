@@ -258,7 +258,7 @@ async fn main() {
                     440.0,
                     swatch_size as f32,
                     swatch_size as f32,
-                    ppu.get_colour_from_pallet_ram(&mut cart, &p, &s),
+                    ppu.get_colour_from_pallet_ram(&mut cart, p, s),
                 )
             }
         }

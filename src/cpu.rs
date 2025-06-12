@@ -12,14 +12,14 @@ const CYAN: macroquad::color::Color = Color {
 
 #[repr(u8)]
 enum Flags {
-    C = (1 << 0), // Carry bit
-    Z = (1 << 1), // Zero
-    I = (1 << 2), // Disable Interrupts
-    D = (1 << 3), // Decimal Mode
-    B = (1 << 4), // Break
-    U = (1 << 5), // Unused
-    V = (1 << 6), // Overflow
-    N = (1 << 7), // Negative
+    C = 1 << 0, // Carry bit
+    Z = 1 << 1, // Zero
+    I = 1 << 2, // Disable Interrupts
+    D = 1 << 3, // Decimal Mode
+    B = 1 << 4, // Break
+    U = 1 << 5, // Unused
+    V = 1 << 6, // Overflow
+    N = 1 << 7, // Negative
 }
 
 struct Instruction {
@@ -31,7 +31,7 @@ struct Instruction {
 
 pub struct Cpu {
     a: u8,       // Accumulator Register
-    x: u8,       // X register
+    x: u8,       //X register
     y: u8,       // Y register,
     stkp: u8,    // Stack Pointer (points to location on bus)
     pub pc: u16, // Program counter
@@ -46,7 +46,7 @@ pub struct Cpu {
 }
 impl Cpu {
     pub fn new() -> Self {
-        return Self {
+        Self {
             a: 0x00,
             x: 0x00,
             y: 0x00,
@@ -1597,10 +1597,17 @@ impl Cpu {
                     cycles: 7,
                 },
             ],
-        };
+        }
     }
 
-    fn write(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge, addr: u16, data: u8) {
+    fn write(
+        &mut self,
+        bus: &mut Bus,
+        ppu: &mut Ppu,
+        cart: &mut Cartridge,
+        addr: u16,
+        data: u8,
+    ) {
         bus.cpu_write(ppu, cart, addr, data);
     }
 
@@ -1645,14 +1652,14 @@ impl Cpu {
     }
 
     fn zpx(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
-        self.addr_abs = (self.read(bus, ppu, cart, self.pc).wrapping_add(self.x)) as u16;
+        self.addr_abs = self.read(bus, ppu, cart, self.pc).wrapping_add(self.x) as u16;
         self.pc = self.pc.wrapping_add(1);
         self.addr_abs &= 0x00FF;
         0
     }
 
     fn zpy(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
-        self.addr_abs = (self.read(bus, ppu, cart, self.pc).wrapping_add(self.y)) as u16;
+        self.addr_abs = self.read(bus, ppu, cart, self.pc).wrapping_add(self.y) as u16;
         self.pc = self.pc.wrapping_add(1);
         self.addr_abs &= 0x00FF;
         0
@@ -1726,7 +1733,8 @@ impl Cpu {
                 | self.read(bus, ppu, cart, ptr) as u16;
         } else {
             // behave normally
-            self.addr_abs = ((self.read(bus, ppu, cart, ptr.wrapping_add(1)) as u16).wrapping_shl(8))
+            self.addr_abs = ((self.read(bus, ppu, cart, ptr.wrapping_add(1)) as u16)
+                .wrapping_shl(8))
                 | self.read(bus, ppu, cart, ptr) as u16;
         }
 
@@ -1798,11 +1806,11 @@ impl Cpu {
     fn asl(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
         let temp = (self.fetched as u16).wrapping_shl(1);
-        self.set_flag(Flags::C, (temp as u16 & 0xFF00) > 0);
-        self.set_flag(Flags::Z, (temp as u16 & 0x00FF) == 0x00);
-        self.set_flag(Flags::N, (temp as u16 & 0x80) > 0);
+        self.set_flag(Flags::C, (temp & 0xFF00) > 0);
+        self.set_flag(Flags::Z, (temp & 0x00FF) == 0x00);
+        self.set_flag(Flags::N, (temp & 0x80) > 0);
 
-        if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
+        if self.lookup[self.opcode as usize].addrmode as usize == Cpu::imp as usize {
             self.a = (temp & 0x00FF) as u8;
         } else {
             self.write(bus, ppu, cart, self.addr_abs, (temp & 0x00FF) as u8);
@@ -1916,6 +1924,7 @@ impl Cpu {
         self.pc = self.pc.wrapping_add(1);
 
         self.set_flag(Flags::I, true);
+
         self.write(
             bus,
             ppu,
@@ -1934,7 +1943,13 @@ impl Cpu {
         self.stkp = self.stkp.wrapping_sub(1);
 
         self.set_flag(Flags::B, true);
-        self.write(bus, ppu, cart, 0x0100_u16.wrapping_add(self.stkp as u16), self.status);
+        self.write(
+            bus,
+            ppu,
+            cart,
+            0x0100_u16.wrapping_add(self.stkp as u16),
+            self.status,
+        );
         self.stkp = self.stkp.wrapping_sub(1);
         self.set_flag(Flags::B, false);
 
@@ -2028,7 +2043,7 @@ impl Cpu {
         self.fetch(bus, ppu, cart);
         let temp = self.fetched.wrapping_sub(1);
         self.write(bus, ppu, cart, self.addr_abs, temp & 0x00FF);
-        self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
+        self.set_flag(Flags::Z, temp == 0x0000);
         self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
@@ -2063,9 +2078,9 @@ impl Cpu {
     fn inc(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
         let temp = self.fetched.wrapping_add(1);
-        self.write(bus, ppu, cart, self.addr_abs, temp & 0x00FF);
+        self.write(bus, ppu, cart, self.addr_abs, temp);
 
-        self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
+        self.set_flag(Flags::Z, temp == 0x0000);
         self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
         0
@@ -2100,7 +2115,7 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100u16.wrapping_add(self.stkp as u16),
             ((self.pc.wrapping_shr(8)) & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
@@ -2108,7 +2123,7 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100u16.wrapping_add(self.stkp as u16),
             (self.pc & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
@@ -2152,10 +2167,16 @@ impl Cpu {
         self.set_flag(Flags::Z, (temp as u16 & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (temp as u16 & 0x0080) > 0);
 
-        if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
-            self.a = temp & 0x00FF;
+        if self.lookup[self.opcode as usize].addrmode as usize == Cpu::imp as usize {
+            self.a = temp;
         } else {
-            self.write(bus, ppu, cart, self.addr_abs, (temp as u16 & 0x00FF) as u8);
+            self.write(
+                bus,
+                ppu,
+                cart,
+                self.addr_abs,
+                (temp as u16 & 0x00FF) as u8,
+            );
         }
 
         0
@@ -2179,7 +2200,13 @@ impl Cpu {
     }
 
     fn pha(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
-        self.write(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16), self.a);
+        self.write(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+            self.a,
+        );
         self.stkp = self.stkp.wrapping_sub(1);
 
         0
@@ -2190,7 +2217,7 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100u16.wrapping_add(self.stkp as u16),
             self.status | Flags::B as u8 | Flags::U as u8,
         );
         self.set_flag(Flags::B, false);
@@ -2202,7 +2229,12 @@ impl Cpu {
 
     fn pla(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.stkp = self.stkp.wrapping_add(1);
-        self.a = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16));
+        self.a = self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        );
         self.set_flag(Flags::Z, self.a == 0x00);
         self.set_flag(Flags::N, (self.a & 0x80) > 0);
 
@@ -2211,7 +2243,12 @@ impl Cpu {
 
     fn plp(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.stkp = self.stkp.wrapping_add(1);
-        self.status = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16));
+        self.status = self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        );
         self.set_flag(Flags::U, true);
 
         0
@@ -2226,7 +2263,7 @@ impl Cpu {
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
-        if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
+        if self.lookup[self.opcode as usize].addrmode as usize == Cpu::imp as usize {
             self.a = (temp & 0x00FF) as u8;
         } else {
             self.write(bus, ppu, cart, self.addr_abs, (temp & 0x00FF) as u8);
@@ -2237,12 +2274,13 @@ impl Cpu {
 
     fn ror(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.fetch(bus, ppu, cart);
-        let temp = (self.get_flag(Flags::C).wrapping_shl(7)) as u16 | (self.fetched.wrapping_shr(1)) as u16;
+        let temp = self.get_flag(Flags::C).wrapping_shl(7) as u16
+            | self.fetched.wrapping_shr(1) as u16;
         self.set_flag(Flags::C, (self.fetched & 0x01) > 0);
         self.set_flag(Flags::Z, (temp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (temp & 0x0080) > 0);
 
-        if (self.lookup[self.opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
+        if self.lookup[self.opcode as usize].addrmode as usize == Cpu::imp as usize {
             self.a = (temp & 0x00FF) as u8;
         } else {
             self.write(bus, ppu, cart, self.addr_abs, (temp & 0x00FF) as u8);
@@ -2253,23 +2291,50 @@ impl Cpu {
 
     fn rti(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.stkp = self.stkp.wrapping_add(1);
-        self.status = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16));
+        self.status = self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        );
         self.status &= !(Flags::B as u8);
         self.status &= !(Flags::U as u8);
 
         self.stkp = self.stkp.wrapping_add(1);
-        self.pc = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16)) as u16;
+        self.pc = self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        ) as u16;
         self.stkp = self.stkp.wrapping_add(1);
-        self.pc |= (self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16)) as u16).wrapping_shl(8);
+        self.pc |= (self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        ) as u16)
+            .wrapping_shl(8);
 
         0
     }
 
     fn rts(&mut self, bus: &mut Bus, ppu: &mut Ppu, cart: &mut Cartridge) -> u8 {
         self.stkp = self.stkp.wrapping_add(1);
-        self.pc = self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16)) as u16;
+        self.pc = self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        ) as u16;
         self.stkp = self.stkp.wrapping_add(1);
-        self.pc |= (self.read(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16)) as u16).wrapping_shl(8);
+        self.pc |= (self.read(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+        ) as u16)
+            .wrapping_shl(8);
 
         self.pc = self.pc.wrapping_add(1);
         0
@@ -2387,12 +2452,14 @@ impl Cpu {
             let additional_cycle2 =
                 (self.lookup[self.opcode as usize].operate)(self, bus, ppu, cart);
 
-            self.cycles = self.cycles.wrapping_add(additional_cycle1 & additional_cycle2);
+            self.cycles = self
+                .cycles
+                .wrapping_add(additional_cycle1 & additional_cycle2);
 
             self.set_flag(Flags::U, true)
         }
 
-        self.clock_count += 1;
+        self.clock_count = self.clock_count.wrapping_add(1);
         self.cycles = self.cycles.wrapping_sub(1);
     }
 
@@ -2421,7 +2488,7 @@ impl Cpu {
                 bus,
                 ppu,
                 cart,
-                (0x0100 as u16).wrapping_add(self.stkp as u16),
+                0x0100u16.wrapping_add(self.stkp as u16),
                 ((self.pc.wrapping_shr(8)) & 0x00FF) as u8,
             );
             self.stkp = self.stkp.wrapping_sub(1);
@@ -2429,7 +2496,7 @@ impl Cpu {
                 bus,
                 ppu,
                 cart,
-                (0x0100 as u16).wrapping_add(self.stkp as u16),
+                0x0100u16.wrapping_add(self.stkp as u16),
                 (self.pc & 0x00FF) as u8,
             );
             self.stkp = self.stkp.wrapping_sub(1);
@@ -2441,14 +2508,15 @@ impl Cpu {
                 bus,
                 ppu,
                 cart,
-                (0x0100 as u16).wrapping_add(self.stkp as u16),
+                0x0100u16.wrapping_add(self.stkp as u16),
                 self.status,
             );
             self.stkp = self.stkp.wrapping_sub(1);
 
             self.addr_abs = 0xFFFE;
-            self.pc = self.read(bus, ppu, cart, self.addr_abs) as u16;
-            self.pc |= (self.read(bus, ppu, cart, self.addr_abs.wrapping_add(1)) as u16).wrapping_shr(8);
+            let lo = self.read(bus, ppu, cart, self.addr_abs) as u16;
+            let hi = self.read(bus, ppu, cart, self.addr_abs.wrapping_add(1)) as u16;
+            self.pc = hi.wrapping_shl(8) | lo;
 
             self.cycles = 7;
         }
@@ -2459,7 +2527,7 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100u16.wrapping_add(self.stkp as u16),
             ((self.pc.wrapping_shr(8)) & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
@@ -2467,7 +2535,7 @@ impl Cpu {
             bus,
             ppu,
             cart,
-            (0x0100 as u16).wrapping_add(self.stkp as u16),
+            0x0100u16.wrapping_add(self.stkp as u16),
             (self.pc & 0x00FF) as u8,
         );
         self.stkp = self.stkp.wrapping_sub(1);
@@ -2475,12 +2543,19 @@ impl Cpu {
         self.set_flag(Flags::B, false);
         self.set_flag(Flags::U, true);
         self.set_flag(Flags::I, true);
-        self.write(bus, ppu, cart, (0x0100 as u16).wrapping_add(self.stkp as u16), self.status);
+        self.write(
+            bus,
+            ppu,
+            cart,
+            0x0100u16.wrapping_add(self.stkp as u16),
+            self.status,
+        );
         self.stkp = self.stkp.wrapping_sub(1);
 
         self.addr_abs = 0xFFFA;
-        self.pc = self.read(bus, ppu, cart, self.addr_abs) as u16;
-        self.pc |= (self.read(bus, ppu, cart, self.addr_abs.wrapping_add(1)) as u16).wrapping_shl(8);
+        let lo = self.read(bus, ppu, cart, self.addr_abs) as u16;
+        let hi = self.read(bus, ppu, cart, self.addr_abs.wrapping_add(1)) as u16;
+        self.pc = hi.wrapping_shl(8) | lo;
 
         self.cycles = 8;
     }
@@ -2516,82 +2591,82 @@ impl Cpu {
             let opcode: u8 = bus.cpu_read(ppu, cart, addr as u16, true);
             addr += 1;
             s_inst.push_str(&self.lookup[opcode as usize].name[..]);
-            s_inst.push_str(" ");
+            s_inst.push(' ');
 
-            if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::imp) as usize {
+            if self.lookup[opcode as usize].addrmode as usize == Cpu::imp as usize {
                 s_inst.push_str(" {IMP}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::imm) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::imm as usize {
                 value = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 s_inst.push_str("#$");
                 s_inst.push_str(&format!("{:02X}", value)[..]);
                 s_inst.push_str(" {IMM}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::zp0) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::zp0 as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
+                s_inst.push('$');
                 s_inst.push_str(&format!("{:02X}", lo)[..]);
                 s_inst.push_str(" {ZP0}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::zpx) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::zpx as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
+                s_inst.push('$');
                 s_inst.push_str(&format!("{:02X}", lo)[..]);
                 s_inst.push_str(", X {ZPX}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::zpy) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::zpy as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
+                s_inst.push('$');
                 s_inst.push_str(&format!("{:02X}", lo)[..]);
                 s_inst.push_str(", Y {ZPY}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::izx) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::izx as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 s_inst.push_str("($");
                 s_inst.push_str(&format!("{:02X}", lo)[..]);
                 s_inst.push_str(", X) {IZX}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::izy) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::izy as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 s_inst.push_str("($");
                 s_inst.push_str(&format!("{:02X}", lo)[..]);
                 s_inst.push_str("), Y {IZY}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::abs) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::abs as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 hi = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
-                s_inst.push_str(&format!("{:04X}", ((hi as u16).wrapping_shl(8) | lo as u16))[..]);
+                s_inst.push('$');
+                s_inst.push_str(&format!("{:04X}", (hi as u16).wrapping_shl(8) | lo as u16)[..]);
                 s_inst.push_str(" {ABS}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::abx) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::abx as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 hi = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
-                s_inst.push_str(&format!("{:04X}", ((hi as u16).wrapping_shl(8) | lo as u16))[..]);
+                s_inst.push('$');
+                s_inst.push_str(&format!("{:04X}", (hi as u16).wrapping_shl(8) | lo as u16)[..]);
                 s_inst.push_str(", X {ABX}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::aby) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::aby as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 hi = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
-                s_inst.push_str(&format!("{:04X}", ((hi as u16).wrapping_shl(8) | lo as u16))[..]);
+                s_inst.push('$');
+                s_inst.push_str(&format!("{:04X}", (hi as u16).wrapping_shl(8) | lo as u16)[..]);
                 s_inst.push_str(", Y {ABY}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::ind) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::ind as usize {
                 lo = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 hi = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
                 s_inst.push_str("($");
-                s_inst.push_str(&format!("{:04X}", ((hi as u16).wrapping_shl(8) | lo as u16))[..]);
+                s_inst.push_str(&format!("{:04X}", (hi as u16).wrapping_shl(8) | lo as u16)[..]);
                 s_inst.push_str(") {IND}");
-            } else if (self.lookup[opcode as usize].addrmode) as usize == (Cpu::rel) as usize {
+            } else if self.lookup[opcode as usize].addrmode as usize == Cpu::rel as usize {
                 value = bus.cpu_read(ppu, cart, addr as u16, true);
                 addr += 1;
-                s_inst.push_str("$");
+                s_inst.push('$');
                 s_inst.push_str(&format!("{:02X}", value)[..]);
                 s_inst.push_str(" [$");
                 s_inst.push_str(&format!("{:04X}", addr as i32 + (value as i8) as i32)[..]);
@@ -2606,49 +2681,6 @@ impl Cpu {
 
     pub fn complete(&self) -> bool {
         self.cycles == 0
-    }
-
-    pub fn load_program(
-        &mut self,
-        bus: &mut Bus,
-        mut n_offset: u16,
-        program: Vec<u8>,
-        reset_lo: u8,
-        reset_hi: u8,
-    ) {
-        for i in program.iter() {
-            bus.cpu_ram[n_offset as usize] = *i;
-            n_offset += 1;
-        }
-
-        bus.cpu_ram[0xFFFC] = reset_lo;
-        bus.cpu_ram[0xFFFD] = reset_hi;
-    }
-
-    pub fn draw_ram(
-        &self,
-        bus: &mut Bus,
-        ppu: &mut Ppu,
-        cart: &mut Cartridge,
-        x: i32,
-        y: i32,
-        mut n_addr: u16,
-        n_rows: i32,
-        n_columns: i32,
-    ) {
-        let n_ram_x = x;
-        let mut n_ram_y = y;
-        for _row in 0..n_rows {
-            let mut s_offset = String::from("$");
-            s_offset.push_str(&format!("{:04X}", n_addr)[..]);
-            for _col in 0..n_columns {
-                s_offset.push_str(" ");
-                s_offset.push_str(&format!("{:02X}", bus.cpu_read(ppu, cart, n_addr, true))[..]);
-                n_addr += 1;
-            }
-            draw_text(&s_offset[..], n_ram_x as f32, n_ram_y as f32, 25.0, WHITE);
-            n_ram_y += 15;
-        }
     }
 
     pub fn draw_cpu(&self, mut x: i32, y: i32) {
