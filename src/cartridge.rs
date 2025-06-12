@@ -2,7 +2,7 @@ use std::{
     cell::RefCell, fs::File, io::{Read, Seek, SeekFrom}, path::Path, rc::Rc
 };
 
-use crate::{mapper::RW, mapper_000::Mapper000};
+use crate::{mapper::RW, mapper_000::Mapper000, mapper_004::Mapper004};
 
 pub struct Cartridge {
     prg_memory: Vec<u8>,
@@ -121,6 +121,9 @@ impl Cartridge {
         match mapper_id {
             0 => {
                 mapper = Rc::new(RefCell::new(Mapper000::new(prg_banks, chr_banks)));
+            }
+            4 => {
+                mapper = Rc::new(RefCell::new(Mapper004::new(prg_banks, chr_banks)));
             }
             _ => {
                 println!("Mapper {} not yet implemented", mapper_id);

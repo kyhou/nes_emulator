@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 mod bus;
 mod mapper;
 mod mapper_000;
+mod mapper_004;
 use bus::Bus;
 mod cpu;
 use cpu::Cpu;
